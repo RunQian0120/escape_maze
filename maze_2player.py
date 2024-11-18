@@ -32,10 +32,10 @@ SWAP_COLOR = GREEN
 P1_WALL = LIGHT_RED
 P2_WALL = LIGHT_BLUE
 
-PLAYER1_COLOR = RED
-PLAYER2_COLOR = BLUE
+PLAYER1_COLOR = BLUE
+END_POINT_COLOR = RED
 
-image_path = 'pixil-frame-0.png'
+image_path = 'maze_layout2.png'
 MAZE = get_maze(image_path)
 
 SCREEN_WIDTH = 900
@@ -102,8 +102,8 @@ class Turret:
 
         if self.check_player_collision(maze.p1):
             maze.p1.move_specific(maze.p1_spawn[0], maze.p1_spawn[1])
-        if self.check_player_collision(maze.p2):
-            maze.p2.move_specific(maze.p2_spawn[0], maze.p2_spawn[1])
+        # if self.check_player_collision(maze.p2):
+        #     maze.p2.move_specific(maze.p2_spawn[0], maze.p2_spawn[1])
     
     def check_player_collision(self, player):
         for bullet in self.bullets[:]:
@@ -124,19 +124,19 @@ class Player:
         self.color = color
         self.controls = controls
     
-    def react_keys(self, keys, maze, gates):
+    def react_keys(self, keys, maze):
         up, down, right, left = self.controls 
         if keys[left]:
-            self.move(-1, 0, maze, gates)
+            self.move(-1, 0, maze)
         if keys[right]:
-            self.move(1, 0, maze, gates)
+            self.move(1, 0, maze)
         if keys[up]:
-            self.move(0, -1, maze, gates)
+            self.move(0, -1, maze)
         if keys[down]:
-            self.move(0, 1, maze, gates)
+            self.move(0, 1, maze)
 
-    def move(self, dx, dy, maze, gates):
-        if self.movable(dx, dy, maze, gates):
+    def move(self, dx, dy, maze):
+        if self.movable(dx, dy, maze):
             self.rect.x += dx * CELL_SIZE
             self.rect.y += dy * CELL_SIZE
 
@@ -144,12 +144,12 @@ class Player:
         self.rect.x = x
         self.rect.y = y
 
-    def movable(self, dx, dy, maze, gates):
+    def movable(self, dx, dy, maze):
         new_rect = self.rect.move(dx * CELL_SIZE, dy * CELL_SIZE)
         i, j = new_rect.y // CELL_SIZE, new_rect.x // CELL_SIZE
-        for g in gates:
-            if new_rect.colliderect(g.rect):
-                return False
+        # for g in gates:
+        #     if new_rect.colliderect(g.rect):
+        #         return False
         return maze.maze[i][j] != 1 and maze.maze[i][j] != 2
 
     def draw(self, screen):
@@ -173,70 +173,36 @@ class Swap:
         pygame.draw.rect(screen, self.color, self.rect)
 
 class Maze:
-    def __init__(self, maze, p1, p2):
+    def __init__(self, maze, p1):
         self.p1 = p1
-        self.p2 = p2
 
         self.maze = maze
         self.turrets = []
-        self.p1_gates = []
-        self.p2_gates = []
-
-        self.swaps = []
-
-        self.swapped = False
+        # self.p1_gates = []
 
         for i in range(len(maze)):
             for j in range(len(maze[0])):
                 if maze[i][j] == 2:
                     self.turrets.append(Turret(j*CELL_SIZE,i*CELL_SIZE))
                 elif maze[i][j] == -1:
+                    self.end_point = pygame.Rect(j*CELL_SIZE,i*CELL_SIZE, CELL_SIZE, CELL_SIZE)
+                elif maze[i][j] == -2:
                     self.p1_spawn = (j*CELL_SIZE,i*CELL_SIZE)
                     self.p1.move_specific(j*CELL_SIZE, i*CELL_SIZE)
-                elif maze[i][j] == -2:
-                    self.p2_spawn = (j*CELL_SIZE,i*CELL_SIZE)
-                    self.p2.move_specific(j*CELL_SIZE, i*CELL_SIZE)
                 elif maze[i][j] == 3:
                     self.swaps.append(Swap(j*CELL_SIZE, i*CELL_SIZE, GREEN))
-                elif maze[i][j] == 4:
-                    self.p1_gates.append(Gate(j*CELL_SIZE, i*CELL_SIZE, p1, LIGHT_RED))
-                elif maze[i][j] == 5:
-                    self.p2_gates.append(Gate(j*CELL_SIZE, i*CELL_SIZE, p2, LIGHT_BLUE))
-
-    def swap_players(self):
-        cur_x, cur_y = self.p1.rect.x, self.p1.rect.y
-        self.p1.move_specific(self.p2.rect.x, self.p2.rect.y)
-        self.p2.move_specific(cur_x, cur_y)
+                # elif maze[i][j] == 4:
+                #     self.p1_gates.append(Gate(j*CELL_SIZE, i*CELL_SIZE, p1, LIGHT_RED))
 
     def update_state(self, keys):
-        self.p1.react_keys(keys, self, self.p2_gates)
-        self.p2.react_keys(keys, self, self.p1_gates)
+        self.p1.react_keys(keys, self)
+        # self.p2.react_keys(keys, self, self.p1_gates)
 
         # check for hitting bullet
         for t in self.turrets:
             if t.check_player_collision(self.p1):
                 self.p1.move_specific(self.p1_spawn[0], self.p1_spawn[1])
-            if t.check_player_collision(self.p2):
-                self.p2.move_specific(self.p2_spawn[0], self.p2_spawn[1])
         
-        # check for hitting swaps
-        if not self.swapped:
-            for s in self.swaps:
-                if self.p1.rect.colliderect(s.rect):
-                    self.swap_players()
-                    self.swapped = True
-                    break
-                if self.p2.rect.colliderect(s.rect):
-                    self.swap_players()
-                    self.swapped = True
-                    break
-        
-        else:
-            for s in self.swaps:
-                if self.p1.rect.colliderect(s.rect) or self.p2.rect.colliderect(s.rect):
-                    break
-            else:
-                self.swapped = False
 
     def move_bullets(self):
         for t in self.turrets:
@@ -260,37 +226,28 @@ class Maze:
     
         for t in self.turrets:
             t.draw(screen)
-        for g in self.p1_gates:
-            g.draw(screen)
-        for g in self.p2_gates:
-            g.draw(screen)
-        for s in self.swaps:
-            s.draw(screen)
+        pygame.draw.rect(screen, END_POINT_COLOR, self.end_point)
+        # for g in self.p1_gates:
+        #     g.draw(screen)
+        
+        # for s in self.swaps:
+        #     s.draw(screen)
 
         self.p1.draw(screen)
-        self.p2.draw(screen)
 
 P1_CONTROLS= (pygame.K_w, pygame.K_s, pygame.K_d, pygame.K_a)
 P2_CONTROLS = (pygame.K_UP, pygame.K_DOWN, pygame.K_RIGHT, pygame.K_LEFT)
 
 def check_win_condition(maze):
-    return maze.p1.rect.colliderect(maze.p2.rect)
+    return maze.p1.rect.colliderect(maze.end_point)
 
-def main():
+import multiprocessing
+
+def player_view(maze, player_position, event_queue, bullet_positions):
+    pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption('Maze Game - Two Players')
-
+    pygame.display.set_caption('Player View')
     clock = pygame.time.Clock()
-    
-    player1 = Player((CELL_SIZE, CELL_SIZE), PLAYER1_COLOR, P1_CONTROLS)
-    player2 = Player((CELL_SIZE * 2, CELL_SIZE * 2), PLAYER2_COLOR, P2_CONTROLS)
-    maze = Maze(MAZE, player1, player2)
-
-    SHOOT_EVENT = pygame.USEREVENT + 1
-    MOVE_BULLET_EVENT = pygame.USEREVENT + 2
-
-    pygame.time.set_timer(SHOOT_EVENT, 5000)
-    pygame.time.set_timer(MOVE_BULLET_EVENT, 500)
 
     while True:
         for event in pygame.event.get():
@@ -298,27 +255,145 @@ def main():
                 pygame.quit()
                 sys.exit()
 
-            if event.type == SHOOT_EVENT:
-                maze.shoot_turrets()
-
-            if event.type == MOVE_BULLET_EVENT:
-                maze.move_bullets()
-
         keys = pygame.key.get_pressed()
+        event_queue.put(keys)  # Send player input to shared state
 
-        maze.update_state(keys)
+        # Draw player view: Only the player rectangle and bullets are visible
+        screen.fill(BLACK)
+        pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
+
+        # # Draw bullets visible in the Player View
+        # for bullet in bullet_positions:
+        #     pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+# Define a function to render the Map View (window 2)
+def map_view(maze, player_position, bullet_positions):
+    pygame.init()
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption('Map View')
+    clock = pygame.time.Clock()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        # Draw the full map
+        screen.fill(BLACK)
         maze.draw(screen)
 
-        if check_win_condition(maze):
-            pygame.display.set_caption("You Won!")
-            font = pygame.font.SysFont(None, 100) 
-            text = font.render('You Won!', True, GREEN)
-            text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        # Draw the player position
+        pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
 
-            screen.blit(text, text_rect)
+        # Draw bullets visible in the Map View
+        for bullet in bullet_positions:
+            pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
 
-        pygame.display.update()
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+# Main game logic
+def main():
+    manager = multiprocessing.Manager()
+    player_position = manager.list([CELL_SIZE, CELL_SIZE])  # Shared player position
+    bullet_positions = manager.list()  # Shared list of bullets (x, y)
+    event_queue = manager.Queue()  # Queue to handle player events
+
+    # Load maze and initialize player
+    maze_layout = get_maze(image_path)
+    player = Player((CELL_SIZE, CELL_SIZE), PLAYER1_COLOR, P1_CONTROLS)
+    maze = Maze(maze_layout, player)
+
+    # Create two processes for the views
+    player_proc = multiprocessing.Process(target=player_view, args=(maze, player_position, event_queue, bullet_positions))
+    map_proc = multiprocessing.Process(target=map_view, args=(maze, player_position, bullet_positions))
+
+    player_proc.start()
+    map_proc.start()
+
+    clock = pygame.time.Clock()
+
+    SHOOT_EVENT = pygame.USEREVENT + 1
+    MOVE_EVENT = pygame.USEREVENT + 2
+    pygame.time.set_timer(MOVE_EVENT, 500)
+    pygame.time.set_timer(SHOOT_EVENT, 5000)
+
+    while True:
+        # Read player input from the queue
+        if not event_queue.empty():
+            keys = event_queue.get()
+            maze.p1.react_keys(keys, maze)
+
+        # Update the shared player position
+        player_position[0] = maze.p1.rect.x
+        player_position[1] = maze.p1.rect.y
+        
+        # Handle turret shooting
+        for event in pygame.event.get():
+            if event.type == SHOOT_EVENT:
+                maze.shoot_turrets()
+            if event.type == MOVE_EVENT:
+                maze.move_bullets()
+                bullet_positions[:] = [(b.rect.x, b.rect.y) for t in maze.turrets for b in t.bullets]
+
+        # Check for collisions with bullets
+        for t in maze.turrets:
+            if t.check_player_collision(maze.p1):
+                maze.p1.move_specific(maze.p1_spawn[0], maze.p1_spawn[1])
+
         clock.tick(FPS)
 
 if __name__ == "__main__":
     main()
+
+# def main():
+#     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+#     pygame.display.set_caption('Maze Game - Two Players')
+
+#     clock = pygame.time.Clock()
+    
+#     player1 = Player((CELL_SIZE, CELL_SIZE), PLAYER1_COLOR, P1_CONTROLS)
+#     maze = Maze(MAZE, player1)
+
+#     SHOOT_EVENT = pygame.USEREVENT + 1
+#     MOVE_BULLET_EVENT = pygame.USEREVENT + 2
+
+#     pygame.time.set_timer(SHOOT_EVENT, 5000)
+#     pygame.time.set_timer(MOVE_BULLET_EVENT, 500)
+
+#     while True:
+#         for event in pygame.event.get():
+#             if event.type == pygame.QUIT:
+#                 pygame.quit()
+#                 sys.exit()
+
+#             if event.type == SHOOT_EVENT:
+#                 maze.shoot_turrets()
+
+#             if event.type == MOVE_BULLET_EVENT:
+#                 maze.move_bullets()
+
+#         keys = pygame.key.get_pressed()
+
+#         maze.update_state(keys)
+#         maze.draw(screen)
+
+#         if check_win_condition(maze):
+#             pygame.display.set_caption("You Won!")
+#             font = pygame.font.SysFont(None, 100) 
+#             text = font.render('You Won!', True, GREEN)
+#             text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+
+#             screen.blit(text, text_rect)
+
+#         pygame.display.update()
+#         clock.tick(FPS)
+
+# if __name__ == "__main__":
+#     main()
