@@ -211,11 +211,12 @@ class Maze:
                 self.p1.move_specific(self.p1_spawn[0], self.p1_spawn[1])
         
     def update_checkpoints(self, player_position):
-        for checkpoint in self.checkpoints:
-            if pygame.Rect(*player_position, CELL_SIZE, CELL_SIZE).colliderect(checkpoint):
-                self.p1_spawn = (checkpoint.x, checkpoint.y)  # Update the reset point
-                self.last_check_point = checkpoint
-                self.end_point = checkpoint
+        with self.lock: 
+            for checkpoint in self.checkpoints:
+                if pygame.Rect(*player_position, CELL_SIZE, CELL_SIZE).colliderect(checkpoint):
+                    self.p1_spawn = (checkpoint.x, checkpoint.y)  # Update the reset point
+                    self.last_check_point = checkpoint
+                    self.end_point = checkpoint
 
         print(self.last_check_point)
 
@@ -228,29 +229,32 @@ class Maze:
             t.shoot(self)
 
     def draw_checkpoints(self, screen):
-        print(f"draw check_points {self.last_check_point}")
-        for c in self.checkpoints:
-            if c == self.last_check_point:
-                pygame.draw.rect(screen, ACTIVE_CHECKPOINT_COLOR, c)
-            else:
-                pygame.draw.rect(screen, CHECKPOINT_COLOR, c)
+        # print(f"draw check_points {self.last_check_point}")
+        with self.lock:
+            for c in self.checkpoints:
+                if c == self.last_check_point:
+                    pygame.draw.rect(screen, ACTIVE_CHECKPOINT_COLOR, c)
+                else:
+                    pygame.draw.rect(screen, CHECKPOINT_COLOR, c)
 
     def draw(self, screen):
         screen.fill(BLACK)
 
-        for i, row in enumerate(self.maze):
-            for j, cell in enumerate(row):
-                if cell == 0:
-                    color = PATH_COLOR
-                elif cell == 1:
-                    color = WALL_COLOR
-
-                pygame.draw.rect(screen, color, pygame.Rect(j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+        # cannot draw if not updated map
+        with self.lock:
+            print('lock acquired')
+            for i, row in enumerate(self.maze):
+                for j, cell in enumerate(row):
+                    if cell == 0:
+                        color = PATH_COLOR
+                    elif cell == 1:
+                        color = WALL_COLOR
+                    pygame.draw.rect(screen, color, pygame.Rect(j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE, CELL_SIZE))
     
-        for t in self.turrets:
-            t.draw(screen)
+            for t in self.turrets:
+                t.draw(screen)
         
-        self.draw_checkpoints(screen)
+        # self.draw_checkpoints(screen)
         pygame.draw.rect(screen, END_POINT_COLOR, self.end_point)
 
         self.p1.draw(screen)
@@ -280,8 +284,8 @@ def player_view(maze, player_position, event_queue, bullet_positions, role_switc
         if role_switch.value == 0:  # Player view is controller
             # Draw player view: Only the player rectangle and bullets are visible
             screen.fill(WHITE)
-            maze.update_checkpoints(player_position)
-            maze.draw_checkpoints(screen)
+            # maze.update_checkpoints(player_position)
+            # maze.draw_checkpoints(screen)
             
             # Draw grid
             for x in range(0, SCREEN_WIDTH, CELL_SIZE):
@@ -292,16 +296,15 @@ def player_view(maze, player_position, event_queue, bullet_positions, role_switc
         else:  # Player view becomes the full map
             # Draw the full map
             screen.fill(BLACK)
-            maze.update_checkpoints(player_position)
+            # maze.update_checkpoints(player_position)
             maze.draw(screen)
 
             for bullet in bullet_positions:
                 pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
         
         # Draw the player
+        maze.draw_checkpoints(screen)
         pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
-
-
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -323,7 +326,7 @@ def map_view(maze, player_position, event_queue, bullet_positions, role_switch):
         if role_switch.value == 0:  # Map view shows the full map
             # Draw the full map
             screen.fill(BLACK)
-            maze.update_checkpoints(player_position)
+            # maze.update_checkpoints(player_position)
             maze.draw(screen)
 
             for bullet in bullet_positions:
@@ -332,8 +335,8 @@ def map_view(maze, player_position, event_queue, bullet_positions, role_switch):
         else:  # Map view becomes the controller
             # Draw player view: Only the player rectangle and bullets are visible
             screen.fill(WHITE)
-            maze.update_checkpoints(player_position)
-            maze.draw_checkpoints(screen)
+            # maze.update_checkpoints(player_position)
+            # maze.draw_checkpoints(screen)
             
             # Draw grid
             for x in range(0, SCREEN_WIDTH, CELL_SIZE):
@@ -342,8 +345,8 @@ def map_view(maze, player_position, event_queue, bullet_positions, role_switch):
                 pygame.draw.line(screen, BLACK, (0, y), (SCREEN_WIDTH, y))  # Horizontal lines
             
         # Draw the player
+        maze.draw_checkpoints(screen)
         pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
-
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -405,6 +408,9 @@ def main():
             # maze_level += 1
 
         clock.tick(FPS)
+    
+    player_p1.join()
+    player_p2.join()
 
 if __name__ == "__main__":
     main()
