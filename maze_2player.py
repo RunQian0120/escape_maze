@@ -38,8 +38,8 @@ END_POINT_COLOR = RED
 image_path = 'maze_layout2.png'
 MAZE = get_maze(image_path)
 
-SCREEN_WIDTH = 900
-SCREEN_HEIGHT = 900
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 800
 CELL_SIZE = SCREEN_WIDTH // len(MAZE[0])
 
 class Bullet:
@@ -243,10 +243,10 @@ def check_win_condition(maze):
 
 import multiprocessing
 
-def player_view(maze, player_position, event_queue, bullet_positions):
+def player_view(maze, player_position, event_queue, bullet_positions, role_switch):
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption('Player View')
+    pygame.display.set_caption('Player 1 View')
     clock = pygame.time.Clock()
 
     while True:
@@ -255,26 +255,31 @@ def player_view(maze, player_position, event_queue, bullet_positions):
                 pygame.quit()
                 sys.exit()
 
-        keys = pygame.key.get_pressed()
-        event_queue.put(keys)  # Send player input to shared state
+        if role_switch.value == 0:  # Player view is controller
+            keys = pygame.key.get_pressed()
+            event_queue.put(keys)  # Send player input to shared state
+            screen.fill(BLACK)
+            pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
+        else:  # Player view becomes the full map
+            # Draw the full map
+            screen.fill(BLACK)
+            maze.draw(screen)
 
-        # Draw player view: Only the player rectangle and bullets are visible
-        screen.fill(BLACK)
-        pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
+            # Draw the player position
+            pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
 
-        # # Draw bullets visible in the Player View
-        # for bullet in bullet_positions:
-        #     pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
+            # Draw bullets visible in the Map View
+            for bullet in bullet_positions:
+                pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
 
         pygame.display.flip()
         clock.tick(FPS)
 
 
-# Define a function to render the Map View (window 2)
-def map_view(maze, player_position, bullet_positions):
+def map_view(maze, player_position, event_queue, bullet_positions, role_switch):
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption('Map View')
+    pygame.display.set_caption('Player 2 View')
     clock = pygame.time.Clock()
 
     while True:
@@ -283,27 +288,33 @@ def map_view(maze, player_position, bullet_positions):
                 pygame.quit()
                 sys.exit()
 
-        # Draw the full map
-        screen.fill(BLACK)
-        maze.draw(screen)
+        if role_switch.value == 0:  # Map view shows the full map
+            # Draw the full map
+            screen.fill(BLACK)
+            maze.draw(screen)
 
-        # Draw the player position
-        pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
+            # Draw the player position
+            pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
 
-        # Draw bullets visible in the Map View
-        for bullet in bullet_positions:
-            pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
+            # Draw bullets visible in the Map View
+            for bullet in bullet_positions:
+                pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
+        else:  # Map view becomes the controller
+            keys = pygame.key.get_pressed()
+            event_queue.put(keys)  # Send player input to shared state
+            screen.fill(BLACK)
+            pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
 
         pygame.display.flip()
         clock.tick(FPS)
 
 
-# Main game logic
 def main():
     manager = multiprocessing.Manager()
     player_position = manager.list([CELL_SIZE, CELL_SIZE])  # Shared player position
     bullet_positions = manager.list()  # Shared list of bullets (x, y)
     event_queue = manager.Queue()  # Queue to handle player events
+    role_switch = manager.Value('i', 0)  # 0 = default roles, 1 = switched roles
 
     # Load maze and initialize player
     maze_layout = get_maze(image_path)
@@ -311,11 +322,15 @@ def main():
     maze = Maze(maze_layout, player)
 
     # Create two processes for the views
-    player_proc = multiprocessing.Process(target=player_view, args=(maze, player_position, event_queue, bullet_positions))
-    map_proc = multiprocessing.Process(target=map_view, args=(maze, player_position, bullet_positions))
+    player_p1 = multiprocessing.Process(target=player_view, args=(maze, player_position, event_queue, bullet_positions, role_switch))
+    player_p2 = multiprocessing.Process(target=map_view, args=(maze, player_position, event_queue, bullet_positions, role_switch))
+    player_p1.start()
+    player_p2.start()
 
-    player_proc.start()
-    map_proc.start()
+    # player_proc = multiprocessing.Process(target=player_view, args=(maze, player_position, event_queue, bullet_positions, role_switch))
+    # map_proc = multiprocessing.Process(target=map_view, args=(maze, player_position, bullet_positions, role_switch))
+    # player_proc.start()
+    # map_proc.start()
 
     clock = pygame.time.Clock()
 
@@ -347,10 +362,15 @@ def main():
             if t.check_player_collision(maze.p1):
                 maze.p1.move_specific(maze.p1_spawn[0], maze.p1_spawn[1])
 
+        # Check win condition
+        if check_win_condition(maze):
+            role_switch.value = 1  # Trigger role switch
+
         clock.tick(FPS)
 
 if __name__ == "__main__":
     main()
+
 
 # def main():
 #     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
