@@ -365,10 +365,7 @@ class MyManager(SyncManager):
 
 
 def main():
-    MyManager.register("Maze", Maze)
-
-    manager = MyManager()
-    manager.start()
+    manager = multiprocessing.Manager()
     player_position = manager.list([CELL_SIZE, CELL_SIZE])  # Shared player position
     bullet_positions = manager.list()  # Shared list of bullets (x, y)
     event_queue = manager.Queue()  # Queue to handle player events
@@ -378,8 +375,7 @@ def main():
     maze_layout_2 = get_maze(image_path, reflect=True)
 
     player = Player((CELL_SIZE, CELL_SIZE), PLAYER1_COLOR, P1_CONTROLS)
-    maze = manager.Maze(maze_layout_1, player)
-
+    maze = Maze(maze_layout_1, player)
 
     # Create two processes for the views
     player_p1 = multiprocessing.Process(target=player_view, args=(maze, player_position, event_queue, bullet_positions, role_switch))
