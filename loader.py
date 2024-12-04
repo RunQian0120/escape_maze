@@ -1,5 +1,5 @@
 from PIL import Image
-
+import numpy as np
 
 P1_GATE = (255, 126, 0, 255) # 5
 P2_GATE = (153, 217, 234, 255) # 4
@@ -12,12 +12,12 @@ TURRET_COLOR = (111, 49, 152, 255) # 2
 PATH_COLOR = (0, 0, 0, 0) # 0
 CHECK_POINT_COLOR = (34, 177, 76, 255) # 3
 
-def get_maze(path):
+def get_maze(path, reflect=False):
     image = Image.open(path)
 
     width, height = image.size
     res = [[0] * width for _ in range(height)]
-    
+
     for y in range(height):
         for x in range(width):
             pixel = image.getpixel((x, y))
@@ -41,4 +41,7 @@ def get_maze(path):
             else:
                 raise RuntimeError("PIXEL_COLOR: {pixel}")
     image.close()
+
+    if reflect: 
+        return np.fliplr(np.rot90(np.array(res)))
     return res

@@ -1,6 +1,7 @@
 import pygame
 import sys
 from loader import get_maze
+import numpy as np
 
 pygame.init()
 
@@ -39,10 +40,12 @@ PLAYER1_COLOR = BLUE
 END_POINT_COLOR = RED
 
 image_path = 'maze_hard_v1.png'
+MAZE_LAYOUTS = ['maze_hard_v1.png']
+NUM_LAYOUTS = 1
 MAZE = get_maze(image_path)
 
-SCREEN_WIDTH = 700
-SCREEN_HEIGHT = 700
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 800
 
 CELL_SIZE = SCREEN_WIDTH // len(MAZE[0])
 
@@ -166,6 +169,8 @@ class Maze:
         self.checkpoints = []
         self.last_check_point = None
 
+        self.lock = multiprocessing.Lock()
+
         for i in range(len(maze)):
             for j in range(len(maze[0])):
                 if maze[i][j] == 2:
@@ -177,6 +182,25 @@ class Maze:
                     self.p1.move_specific(j*CELL_SIZE, i*CELL_SIZE)
                 elif maze[i][j] == 6:
                     self.checkpoints.append(pygame.Rect(j*CELL_SIZE,i*CELL_SIZE, CELL_SIZE, CELL_SIZE))
+
+    def swap_maze(self, maze):
+        with self.lock:
+            self.maze = maze
+            self.turrets = []
+            self.checkpoints = []
+            self.last_check_point = None
+
+            for i in range(len(maze)):
+                for j in range(len(maze[0])):
+                    if maze[i][j] == 2:
+                        self.turrets.append(Turret(j*CELL_SIZE,i*CELL_SIZE))
+                    elif maze[i][j] == -1:
+                        self.end_point = pygame.Rect(j*CELL_SIZE,i*CELL_SIZE, CELL_SIZE, CELL_SIZE)
+                    elif maze[i][j] == -2:
+                        self.p1_spawn = (j*CELL_SIZE,i*CELL_SIZE)
+                        self.p1.move_specific(j*CELL_SIZE, i*CELL_SIZE)
+                    elif maze[i][j] == 6:
+                        self.checkpoints.append(pygame.Rect(j*CELL_SIZE,i*CELL_SIZE, CELL_SIZE, CELL_SIZE))
 
     def update_state(self, event):
         self.p1.react_keys(event, self)
@@ -191,6 +215,7 @@ class Maze:
             if pygame.Rect(*player_position, CELL_SIZE, CELL_SIZE).colliderect(checkpoint):
                 self.p1_spawn = (checkpoint.x, checkpoint.y)  # Update the reset point
                 self.last_check_point = checkpoint
+                self.end_point = checkpoint
 
         print(self.last_check_point)
 
@@ -264,18 +289,18 @@ def player_view(maze, player_position, event_queue, bullet_positions, role_switc
             for y in range(0, SCREEN_HEIGHT, CELL_SIZE):
                 pygame.draw.line(screen, BLACK, (0, y), (SCREEN_WIDTH, y))  # Horizontal lines
             
-            # Draw the player
-            pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
         else:  # Player view becomes the full map
             # Draw the full map
             screen.fill(BLACK)
             maze.update_checkpoints(player_position)
             maze.draw(screen)
 
-            pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
-
             for bullet in bullet_positions:
                 pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
+        
+        # Draw the player
+        pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
+
 
         pygame.display.flip()
         clock.tick(FPS)
@@ -301,10 +326,9 @@ def map_view(maze, player_position, event_queue, bullet_positions, role_switch):
             maze.update_checkpoints(player_position)
             maze.draw(screen)
 
-            pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
-
             for bullet in bullet_positions:
                 pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
+
         else:  # Map view becomes the controller
             # Draw player view: Only the player rectangle and bullets are visible
             screen.fill(WHITE)
@@ -317,8 +341,8 @@ def map_view(maze, player_position, event_queue, bullet_positions, role_switch):
             for y in range(0, SCREEN_HEIGHT, CELL_SIZE):
                 pygame.draw.line(screen, BLACK, (0, y), (SCREEN_WIDTH, y))  # Horizontal lines
             
-            # Draw the player
-            pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
+        # Draw the player
+        pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
 
         pygame.display.flip()
         clock.tick(FPS)
@@ -331,21 +355,17 @@ def main():
     event_queue = manager.Queue()  # Queue to handle player events
     role_switch = manager.Value('i', 0)  # 0 = default roles, 1 = switched roles
 
-    # Load maze and initialize player
-    maze_layout = get_maze(image_path)
+    maze_layout_1 = get_maze(image_path)
+    maze_layout_2 = get_maze(image_path, reflect=True)
+
     player = Player((CELL_SIZE, CELL_SIZE), PLAYER1_COLOR, P1_CONTROLS)
-    maze = Maze(maze_layout, player)
+    maze = Maze(maze_layout_1, player)
 
     # Create two processes for the views
     player_p1 = multiprocessing.Process(target=player_view, args=(maze, player_position, event_queue, bullet_positions, role_switch))
     player_p2 = multiprocessing.Process(target=map_view, args=(maze, player_position, event_queue, bullet_positions, role_switch))
     player_p1.start()
     player_p2.start()
-
-    # player_proc = multiprocessing.Process(target=player_view, args=(maze, player_position, event_queue, bullet_positions, role_switch))
-    # map_proc = multiprocessing.Process(target=map_view, args=(maze, player_position, bullet_positions, role_switch))
-    # player_proc.start()
-    # map_proc.start()
 
     clock = pygame.time.Clock()
 
@@ -380,6 +400,9 @@ def main():
         # Check win condition
         if check_win_condition(maze):
             role_switch.value = 1  # Trigger role switch
+            # current_maze = maze_2
+            maze.swap_maze(maze_layout_2)
+            # maze_level += 1
 
         clock.tick(FPS)
 
