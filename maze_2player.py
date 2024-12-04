@@ -186,22 +186,23 @@ class Maze:
 
     def swap_maze(self, maze):
         # with self.lock:
-        self.maze = maze
-        self.turrets = []
-        self.checkpoints = []
-        self.last_check_point = None
+        # self.maze = maze
+        # self.turrets = []
+        # self.checkpoints = []
+        # self.last_check_point = None
 
-        for i in range(len(maze)):
-            for j in range(len(maze[0])):
-                if maze[i][j] == 2:
-                    self.turrets.append(Turret(j*CELL_SIZE,i*CELL_SIZE))
-                elif maze[i][j] == -1:
-                    self.end_point = pygame.Rect(j*CELL_SIZE,i*CELL_SIZE, CELL_SIZE, CELL_SIZE)
-                elif maze[i][j] == -2:
-                    self.p1_spawn = (j*CELL_SIZE,i*CELL_SIZE)
-                    self.p1.move_specific(j*CELL_SIZE, i*CELL_SIZE)
-                elif maze[i][j] == 6:
-                    self.checkpoints.append(pygame.Rect(j*CELL_SIZE,i*CELL_SIZE, CELL_SIZE, CELL_SIZE))
+        # for i in range(len(maze)):
+        #     for j in range(len(maze[0])):
+        #         if maze[i][j] == 2:
+        #             self.turrets.append(Turret(j*CELL_SIZE,i*CELL_SIZE))
+        #         elif maze[i][j] == -1:
+        #             self.end_point = pygame.Rect(j*CELL_SIZE,i*CELL_SIZE, CELL_SIZE, CELL_SIZE)
+        #         elif maze[i][j] == -2:
+        #             self.p1_spawn = (j*CELL_SIZE,i*CELL_SIZE)
+        #             self.p1.move_specific(j*CELL_SIZE, i*CELL_SIZE)
+        #         elif maze[i][j] == 6:
+        #             self.checkpoints.append(pygame.Rect(j*CELL_SIZE,i*CELL_SIZE, CELL_SIZE, CELL_SIZE))
+        self.end_point = pygame.Rect(CELL_SIZE*CELL_SIZE, CELL_SIZE*CELL_SIZE, CELL_SIZE, CELL_SIZE)
 
     def update_state(self, event):
         self.p1.react_keys(event, self)
@@ -217,7 +218,6 @@ class Maze:
             if pygame.Rect(*player_position, CELL_SIZE, CELL_SIZE).colliderect(checkpoint):
                 self.p1_spawn = (checkpoint.x, checkpoint.y)  # Update the reset point
                 self.last_check_point = checkpoint
-                self.end_point = checkpoint
 
         print(self.last_check_point)
 
