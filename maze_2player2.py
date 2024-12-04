@@ -421,7 +421,7 @@ def main(swap=False):
         if check_win_condition(maze):
             role_switch.value = 1  # Trigger role switch
             maze.swap_maze(maze_layout_2)
-            return True
+            break
 
         clock.tick(FPS)
     
