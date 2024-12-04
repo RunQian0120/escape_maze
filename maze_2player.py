@@ -38,8 +38,9 @@ END_POINT_COLOR = RED
 image_path = 'maze_layout2.png'
 MAZE = get_maze(image_path)
 
-SCREEN_WIDTH = 900
-SCREEN_HEIGHT = 900
+SCREEN_WIDTH = 700
+SCREEN_HEIGHT = 700
+
 CELL_SIZE = SCREEN_WIDTH // len(MAZE[0])
 
 class Bullet:
@@ -124,16 +125,17 @@ class Player:
         self.color = color
         self.controls = controls
     
-    def react_keys(self, keys, maze):
-        up, down, right, left = self.controls 
-        if keys[left]:
+    def react_keys(self, event, maze):
+        up, down, right, left = self.controls
+        if event == left:
             self.move(-1, 0, maze)
-        if keys[right]:
+        elif event == right:
             self.move(1, 0, maze)
-        if keys[up]:
+        elif event == up:
             self.move(0, -1, maze)
-        if keys[down]:
+        elif event == down:
             self.move(0, 1, maze)
+
 
     def move(self, dx, dy, maze):
         if self.movable(dx, dy, maze):
@@ -194,8 +196,9 @@ class Maze:
                 # elif maze[i][j] == 4:
                 #     self.p1_gates.append(Gate(j*CELL_SIZE, i*CELL_SIZE, p1, LIGHT_RED))
 
-    def update_state(self, keys):
-        self.p1.react_keys(keys, self)
+    def update_state(self, event):
+        self.p1.react_keys(event, self)
+
         # self.p2.react_keys(keys, self, self.p1_gates)
 
         # check for hitting bullet
@@ -243,6 +246,31 @@ def check_win_condition(maze):
 
 import multiprocessing
 
+# def player_view(maze, player_position, event_queue, bullet_positions):
+#     pygame.init()
+#     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+#     pygame.display.set_caption('Player View')
+#     clock = pygame.time.Clock()
+
+#     while True:
+#         for event in pygame.event.get():
+#             if event.type == pygame.QUIT:
+#                 pygame.quit()
+#                 sys.exit()
+
+#         keys = pygame.key.get_pressed()
+#         event_queue.put(keys)  # Send player input to shared state
+
+#         # Draw player view: Only the player rectangle and bullets are visible
+#         screen.fill(BLACK)
+#         pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
+
+#         # # Draw bullets visible in the Player View
+#         # for bullet in bullet_positions:
+#         #     pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
+
+#         pygame.display.flip()
+#         clock.tick(FPS)
 def player_view(maze, player_position, event_queue, bullet_positions):
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -254,15 +282,23 @@ def player_view(maze, player_position, event_queue, bullet_positions):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-
-        keys = pygame.key.get_pressed()
-        event_queue.put(keys)  # Send player input to shared state
+            if event.type == pygame.KEYDOWN:
+                event_queue.put(event.key)
 
         # Draw player view: Only the player rectangle and bullets are visible
-        screen.fill(BLACK)
+        screen.fill(WHITE)
+        
+        # Draw grid
+        for x in range(0, SCREEN_WIDTH, CELL_SIZE):
+            pygame.draw.line(screen, BLACK, (x, 0), (x, SCREEN_HEIGHT))  # Vertical lines
+        for y in range(0, SCREEN_HEIGHT, CELL_SIZE):
+            pygame.draw.line(screen, BLACK, (0, y), (SCREEN_WIDTH, y))  # Horizontal lines
+        
+        # Draw the player
         pygame.draw.rect(screen, PLAYER1_COLOR, pygame.Rect(player_position[0], player_position[1], CELL_SIZE - 2, CELL_SIZE - 2))
 
-        # # Draw bullets visible in the Player View
+        # Draw bullets visible in the Player View
+        # Uncomment if needed:
         # for bullet in bullet_positions:
         #     pygame.draw.rect(screen, YELLOW, pygame.Rect(bullet[0], bullet[1], CELL_SIZE - 10, CELL_SIZE - 10))
 
