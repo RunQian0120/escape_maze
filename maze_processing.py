@@ -399,11 +399,15 @@ def main():
         # Read player input from the queue
         if not event_queue.empty():
             keys = event_queue.get()
-            maze.p1.react_keys(keys, maze)
+            # maze.p1.react_keys(keys, maze)
+            maze.get_p1().react_keys(keys, maze)
 
         # Update the shared player position
-        player_position[0] = maze.p1.rect.x
-        player_position[1] = maze.p1.rect.y
+        # player_position[0] = maze.p1.rect.x
+        # player_position[1] = maze.p1.rect.y
+        
+        player_position[0] = maze.get_pos_x()
+        player_position[1] = maze.get_pos_y()
         maze.update_checkpoints(player_position)
 
         # Handle turret shooting
@@ -412,12 +416,15 @@ def main():
                 maze.shoot_turrets()
             if event.type == MOVE_EVENT:
                 maze.move_bullets()
-                bullet_positions[:] = [(b.rect.x, b.rect.y) for t in maze.turrets for b in t.bullets]
+                # bullet_positions[:] = [(b.rect.x, b.rect.y) for t in maze.turrets for b in t.bullets]
+                bullet_positions[:] = [(b.rect.x, b.rect.y) for t in maze.get_turrets() for b in t.bullets]
 
         # Check for collisions with bullets
-        for t in maze.turrets:
-            if t.check_player_collision(maze.p1):
-                maze.p1.move_specific(maze.p1_spawn[0], maze.p1_spawn[1])
+        # for t in maze.turrets:
+        for t in maze.get_turrets():
+            if t.check_player_collision(maze.get_p1()):
+                # maze.p1.move_specific(maze.p1_spawn[0], maze.p1_spawn[1])
+                maze.get_p1().move_specific(maze.get_p1_spawn()[0], maze.get_p1_spawn()[1])
 
         # Check win condition
         if check_win_condition(maze):
